@@ -31,7 +31,7 @@
  *
  * This project provides two demo applications.  A simple blinky style project,
  * and a more comprehensive test and demo application.  The
- * mainCREATE_SIMPLE_BLINKY_DEMO_ONLY constant, defined in this file, is used to
+ * CREATE_SIMPLE_BLINKY_DEMO_ONLY constant, defined in this file, is used to
  * select between the two.  The simply blinky demo is implemented and described
  * in main_blinky.c.  The more comprehensive test and demo application is
  * implemented and described in main_full.c.
@@ -87,15 +87,15 @@
 
 /* This project provides two demo applications.  A simple blinky style demo
  * application, and a more comprehensive test and demo application.  The
- * mainCREATE_SIMPLE_BLINKY_DEMO_ONLY setting is used to select between the two.
+ * CREATE_SIMPLE_BLINKY_DEMO_ONLY setting is used to select between the two.
  *
- * If mainCREATE_SIMPLE_BLINKY_DEMO_ONLY is 1 then the blinky demo will be built.
+ * If CREATE_SIMPLE_BLINKY_DEMO_ONLY is 1 then the blinky demo will be built.
  * The blinky demo is implemented and described in main_blinky.c.
  *
- * If mainCREATE_SIMPLE_BLINKY_DEMO_ONLY is not 1 then the comprehensive test and
+ * If CREATE_SIMPLE_BLINKY_DEMO_ONLY is not 1 then the comprehensive test and
  * demo application will be built.  The comprehensive test and demo application is
  * implemented and described in main_full.c. */
-#define mainCREATE_SIMPLE_BLINKY_DEMO_ONLY    1
+#define CREATE_SIMPLE_BLINKY_DEMO_ONLY    1
 
 /* printf() output uses the UART.  These constants define the addresses of the
  * required UART registers. */
@@ -107,14 +107,14 @@
 #define TX_BUFFER_MASK                        ( 1UL )
 
 /* The number of items the queues can hold at once. */
-#define mainPOWER_QUEUE_LENGTH                   ( 2 )
-#define mainGRID_QUEUE_LENGTH                   ( 4 )
+#define POWER_QUEUE_LENGTH                   ( 2 )
+#define GRID_QUEUE_LENGTH                   ( 4 )
 
 /* Priorities at which the tasks are created. */
-#define mainSOLAR_GEN_TASK_PRIORITY    ( tskIDLE_PRIORITY + 1 )
-#define mainBATTERY_MGMT_TASK_PRIORITY  ( tskIDLE_PRIORITY + 2 )
-#define mainLOAD_MGMT_TASK_PRIORITY  ( tskIDLE_PRIORITY + 3 )
-#define mainGRID_INTERACT_TASK_PRIORITY  ( tskIDLE_PRIORITY + 4 )
+#define SOLAR_GEN_TASK_PRIORITY    ( tskIDLE_PRIORITY + 1 )
+#define BATTERY_MGMT_TASK_PRIORITY  ( tskIDLE_PRIORITY + 2 )
+#define LOAD_MGMT_TASK_PRIORITY  ( tskIDLE_PRIORITY + 3 )
+#define GRID_INTERACT_TASK_PRIORITY  ( tskIDLE_PRIORITY + 4 )
 
 /* The rate at which data is sent to the queue, and the rate at which battery level is checked. 
 The times are converted from milliseconds to ticks using the pdMS_TO_TICKS() macro. */
@@ -125,7 +125,7 @@ The times are converted from milliseconds to ticks using the pdMS_TO_TICKS() mac
 #define AMPLITUDE 5000
 #define PERIOD 24
 #define PHASE M_PI/2
-#define mainSOLAR_POWER(tick) ( (TickType_t) ( AMPLITUDE * sin(2 * M_PI / PERIOD * (tick) / configTICK_RATE_HZ - PHASE) ) )
+#define SOLAR_POWER(tick) ( (TickType_t) ( AMPLITUDE * sin(2 * M_PI / PERIOD * (tick) / configTICK_RATE_HZ - PHASE) ) )
 
 /* The rate at which the battery is updated in this simulation is 12 minutes in real life time.
  * We have the power, to get energy we just need to multiply by 0.2 (W.h). Since that is floating point,
@@ -137,7 +137,7 @@ The times are converted from milliseconds to ticks using the pdMS_TO_TICKS() mac
 #define CAPACITY 10000
 
 /* Number of devices being considered */
-#define NUM_DEVICES ( sizeof(devices) / sizeof(devices[0]) )
+#define NUM_DEVICES ( sizeof(xDevices) / sizeof(xDevices[0]) )
 
 /* Macro to calculate price of energy at a given time in the day. It is in miliCents /W */
 #define PRICE_AMPLITUDE 0.07    // Represents the maximum price fluctuation (±7 cents)
@@ -172,21 +172,21 @@ static QueueHandle_t xQueueGrid = NULL;
 static SemaphoreHandle_t xSemaphore = NULL;
 
 /* Battery level in W.h */
-static int32_t batteryLevel = 0;
+static int32_t lBatteryLevel = 0;
 
 /* Expenditure or profit with energy */
 static int32_t lBill = 0;
 
 /* Structure of an appliance */
 typedef struct {
-    char name[20];
-    uint16_t power; // Power consuption in W
-    bool status; // On or Off
-    uint8_t priority; // Lowest number means higher priority
+    char cName[20];
+    uint16_t usPower; // Power consuption in W
+    bool bStatus; // On or Off
+    uint8_t ucPriority; // Lowest number means higher priority
 } Appliance;
 
 /* List of devices */
-Appliance devices[] = {
+Appliance xDevices[] = {
 
     {"Lighting", 100, false, 1}, // 10 LEDs consuming 10W each
     {"Refrigerator", 300, true, 1},
@@ -203,8 +203,8 @@ void main( void )
     prvUARTInit();
 
     /* Create the queue. */
-    xQueuePower = xQueueCreate( mainPOWER_QUEUE_LENGTH, sizeof( uint32_t ) );
-    xQueueGrid = xQueueCreate( mainGRID_QUEUE_LENGTH, sizeof( uint32_t ) );
+    xQueuePower = xQueueCreate( POWER_QUEUE_LENGTH, sizeof( uint32_t ) );
+    xQueueGrid = xQueueCreate( GRID_QUEUE_LENGTH, sizeof( uint32_t ) );
 
     xSemaphore = xSemaphoreCreateMutex();
 
@@ -214,15 +214,15 @@ void main( void )
                     "SolarGen",                     /* The text name assigned to the task - for debug only as it is not used by the kernel. */
                     1048,                           /* The size of the stack to allocate to the task. */
                     NULL,                           /* The parameter passed to the task - not used in this simple case. */
-                    mainSOLAR_GEN_TASK_PRIORITY,    /* The priority assigned to the task. */
+                    SOLAR_GEN_TASK_PRIORITY,    /* The priority assigned to the task. */
                     NULL );                         /* The task handle is not required, so NULL is passed. */
 
         
-        xTaskCreate( vTaskBatteryManagement, "BatteryMgmt", 1048, NULL, mainBATTERY_MGMT_TASK_PRIORITY, NULL );
+        xTaskCreate( vTaskBatteryManagement, "BatteryMgmt", 1048, NULL, BATTERY_MGMT_TASK_PRIORITY, NULL );
 
-        xTaskCreate( vTaskLoadManagement, "LoadMgmt", 1048, NULL, mainLOAD_MGMT_TASK_PRIORITY, NULL );
+        xTaskCreate( vTaskLoadManagement, "LoadMgmt", 1048, NULL, LOAD_MGMT_TASK_PRIORITY, NULL );
 
-        xTaskCreate( vTaskGridInteraction, "GridInteract", 1048, NULL, mainGRID_INTERACT_TASK_PRIORITY, NULL );
+        xTaskCreate( vTaskGridInteraction, "GridInteract", 1048, NULL, GRID_INTERACT_TASK_PRIORITY, NULL );
 
         // Create tasks and start scheduler
         vTaskStartScheduler();
@@ -250,7 +250,7 @@ void vTaskSolarPowerGeneration( void * pvParameters )
         vTaskDelayUntil( &xNextWakeTime, xBlockTime );
 
         /* Calculate the Solar Power delivered to the cell in this time */
-        uint16_t usValueToSend = mainSOLAR_POWER(xNextWakeTime); 
+        uint16_t usValueToSend = SOLAR_POWER(xNextWakeTime); 
 
         /* Send to the queue - causing the queue receive task to unblock and
          * write to the console.  0 is used as the block time so the send operation
@@ -278,14 +278,14 @@ void vTaskBatteryManagement( void * pvParameters )
         /*  Check if received value is an expected value, and if battery is not full. 
          * Take the mutex and update the battery level */
         uint16_t usEnergy = usReceivedValue * TIME_NUMERATOR / TIME_DENOMINATOR;
-        uint32_t localBatteryLevel = 0; 
+        uint32_t ulLocalBatteryLevel = 0; 
        
-        if( (usReceivedValue <= AMPLITUDE) && ((batteryLevel + usEnergy) < CAPACITY) ) 
+        if( (usReceivedValue <= AMPLITUDE) && ((lBatteryLevel + usEnergy) < CAPACITY) ) 
         {   
             if( xSemaphoreTake( xSemaphore, ( TickType_t ) pdMS_TO_TICKS(10UL) ) == pdTRUE )
             {
-                batteryLevel += usEnergy;
-                localBatteryLevel = batteryLevel; 
+                lBatteryLevel += usEnergy;
+                ulLocalBatteryLevel = lBatteryLevel; 
                 xSemaphoreGive( xSemaphore );
             }
             else
@@ -297,7 +297,7 @@ void vTaskBatteryManagement( void * pvParameters )
         {
             // Signal to the Grid Interaction Task we are selling energy
             xQueueSend( xQueueGrid, &usEnergy, 0U );
-            localBatteryLevel = batteryLevel; 
+            ulLocalBatteryLevel = lBatteryLevel; 
         }
         else
         {
@@ -305,7 +305,7 @@ void vTaskBatteryManagement( void * pvParameters )
         }
 
         /* Print battery level outside the critical region, with a local variable equal to the batteryLevel updated by this task */
-        printf("Battery Level: %u\n", localBatteryLevel); 
+        printf("Battery Level: %u\n", ulLocalBatteryLevel); 
     }
 }
 /*-----------------------------------------------------------*/
@@ -329,19 +329,19 @@ void vTaskLoadManagement( void * pvParameters )
         /* Check the state of each appliance and calculate the total power consumption based on which devices are active.*/
         uint16_t usConsumedPower = 0;
         for (uint8_t i=0; i < NUM_DEVICES; i++){
-            if (devices[i].status == 1){
-                usConsumedPower += devices[i].power;
+            if (xDevices[i].bStatus == 1){
+                usConsumedPower += xDevices[i].usPower;
             }
         }
 
         uint16_t usEnergy = usConsumedPower * TIME_NUMERATOR / TIME_DENOMINATOR;
         
         /*  Update battery level if we have enough battery */
-        if (batteryLevel > usEnergy)
+        if (lBatteryLevel > usEnergy)
         {
             if( xSemaphoreTake( xSemaphore, ( TickType_t ) pdMS_TO_TICKS(10UL) ) == pdTRUE )
             {
-                batteryLevel -= usEnergy;
+                lBatteryLevel -= usEnergy;
                 xSemaphoreGive( xSemaphore );
             }
             else
@@ -444,13 +444,13 @@ void vApplicationTickHook( void )
     * code must not attempt to block, and only the interrupt safe FreeRTOS API
     * functions can be used (those that end in FromISR()). */
 
-    #if ( mainCREATE_SIMPLE_BLINKY_DEMO_ONLY != 1 )
+    #if ( CREATE_SIMPLE_BLINKY_DEMO_ONLY != 1 )
     {
         extern void vFullDemoTickHookFunction( void );
 
         vFullDemoTickHookFunction();
     }
-    #endif /* mainCREATE_SIMPLE_BLINKY_DEMO_ONLY */
+    #endif /* CREATE_SIMPLE_BLINKY_DEMO_ONLY */
 }
 /*-----------------------------------------------------------*/
 
